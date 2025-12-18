@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İndirmeler - Yönetici Paneli</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Dashboard Cards */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: #2563eb;
+        }
+
+        .stat-title {
+            font-size: 0.9em;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 2.2em;
+            font-weight: 800;
+            color: #111827;
+        }
+
+        .stat-sub {
+            font-size: 0.85em;
+            color: #10b981;
+            margin-top: 5px;
+        }
+
+        /* Table Styles */
+        .styled-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .styled-table thead {
+            background-color: #f9fafb;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .styled-table th {
+            padding: 15px 20px;
+            text-align: left;
+            font-size: 0.85em;
+            color: #6b7280;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .styled-table td {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f3f4f6;
+            color: #374151;
+            font-size: 0.95em;
+        }
+
+        .styled-table tr:hover {
+            background-color: #f9fafb;
+        }
+
+        input.update-input {
+            width: 80px;
+            padding: 5px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-family: inherit;
+        }
+
+        button.update-btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button.update-btn:hover {
+            background: #1d4ed8;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+            height: 300px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="mySidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>Panel</h2>
+            <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+        </div>
+        <a href="admin.html">Ana Sayfa</a>
+        <a href="employees.html">Personel</a>
+        <a href="reports.html">Raporlar</a>
+        <a href="downloads.html" class="active">İndirmeler</a>
+        <a href="accounts.html">Hesaplar</a>
+        <a href="#" onclick="auth.logout()">Çıkış Yap</a>
+    </div>
+
+    <div id="main">
+        <div class="navbar">
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button class="menu-btn" onclick="openNav()">&#9776;</button>
+                <h2>İndirme Takip</h2>
+            </div>
+        </div>
+
+        <div id="adminView" style="display:none;">
+
+            <!-- Date Selection Bar -->
+            <div class="card"
+                style="margin-bottom:20px; padding:15px; display:flex; gap:15px; align-items:center; flex-wrap:wrap;">
+                <div style="display:flex; flex-direction:column;">
+                    <label style="font-size:0.8em; color:#6b7280; font-weight:bold;">Başlangıç Tarihi</label>
+                    <input type="date" id="startDate" style="padding:5px; border:1px solid #d1d5db; border-radius:4px;">
+                </div>
+                <div style="display:flex; flex-direction:column;">
+                    <label style="font-size:0.8em; color:#6b7280; font-weight:bold;">Bitiş Tarihi</label>
+                    <input type="date" id="endDate" style="padding:5px; border:1px solid #d1d5db; border-radius:4px;">
+                </div>
+                <div style="display:flex; align-items:flex-end;">
+                    <button onclick="setDateRange()"
+                        style="background:#2563eb; color:white; border:none; padding:8px 20px; border-radius:4px; cursor:pointer;">Aralığı
+                        Seç</button>
+                </div>
+                <!-- Selection Info -->
+                <div id="rangeInfo" style="margin-left:auto; font-weight:bold; color:#2563eb; display:none;">
+                    Seçili Aralık: <span id="rangeText"></span>
+                </div>
+            </div>
+
+            <!-- Top Stats -->
+            <div class="dashboard-grid">
+                <div class="stat-card">
+                    <span class="stat-title">Toplam İndirme</span>
+                    <span class="stat-value" id="totalDownloads">0</span>
+                    <span class="stat-sub">Tüm zamanlar</span>
+                </div>
+                <div class="stat-card" style="border-left: 4px solid #8b5cf6;">
+                    <span class="stat-title">Toplam Hesaplar</span>
+                    <span class="stat-value" id="totalAccounts">0</span>
+                    <span class="stat-sub">Sistemdeki tüm hesaplar</span>
+                </div>
+                <!-- Range Stat Card (New) -->
+                <div class="stat-card" style="border-left: 4px solid #6366f1;">
+                    <style>
+                        .stat-card[style*="6366f1"]::before {
+                            display: none
+                        }
+                    </style>
+                    <span class="stat-title">Seçilen Aralık</span>
+                    <span class="stat-value" id="rangeTotal">-</span>
+                    <span class="stat-sub" id="rangeLabel">Tarih seçiniz</span>
+                </div>
+                <div class="stat-card" style="border-left: 4px solid #f59e0b;">
+                    <style>
+                        .stat-card[style*="f59e0b"]::before {
+                            display: none
+                        }
+                    </style>
+                    <span class="stat-title">Haftanın Lideri</span>
+                    <span class="stat-value" id="bestEmployee">-</span>
+                    <span class="stat-sub">En yüksek performans</span>
+                </div>
+                <div class="stat-card" style="border-left: 4px solid #10b981;">
+                    <span class="stat-title">Aktif Personel</span>
+                    <span class="stat-value" id="activeCount">0</span>
+                    <span class="stat-sub">İndirme yapanlar</span>
+                </div>
+            </div>
+
+            <!-- Chart -->
+            <div class="chart-container">
+                <canvas id="downloadChart"></canvas>
+            </div>
+
+            <!-- Table -->
+            <div class="card" style="padding:0; box-shadow:none; background:transparent;">
+                <h3 style="margin-bottom:15px; padding-left:5px;">Personel Performansı (Veri Girişi)</h3>
+                <div id="employeeList">Yükleniyor...</div>
+            </div>
+        </div>
+
+        <div id="employeeView" style="display:none;">
+            <!-- Top Grid: Total & Chart -->
+            <div class="dashboard-grid"
+                style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-bottom:20px;">
+                <!-- Stats Card -->
+                <div class="stat-card"
+                    style="justify-content:center; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color:white;">
+                    <style>
+                        .stat-card[style*="gradient"]::before {
+                            display: none
+                        }
+
+                        .stat-card[style*="gradient"] .stat-title {
+                            color: rgba(255, 255, 255, 0.8)
+                        }
+
+                        .stat-card[style*="gradient"] .stat-value {
+                            color: white
+                        }
+
+                        .stat-card[style*="gradient"] .stat-sub {
+                            color: rgba(255, 255, 255, 0.9)
+                        }
+                    </style>
+                    <span class="stat-title">Toplam İndirmeleriniz</span>
+                    <span class="stat-value" id="myTotalDownloads">0</span>
+                    <span class="stat-sub">Hedefe gitmek için çalışmaya devam!</span>
+                </div>
+
+                <!-- Chart -->
+                <div class="card" style="display:flex; flex-direction:column; height:250px;">
+                    <h3 style="margin-bottom:10px;">Performans Grafiği</h3>
+                    <div class="chart-container" id="empChartContainer"
+                        style="flex:1; margin:0; box-shadow:none; padding:5px; height:auto;"></div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card" style="box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                <h3 style="margin-bottom:15px; border-bottom:1px solid #f3f4f6; padding-bottom:10px;">Son Hareketler
+                </h3>
+                <div id="recentActivityList">
+                    <p style="color:#6b7280; font-style:italic">Yükleniyor...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        auth.check();
+        const role = auth.getRole();
+        let selectedStart = null;
+        let selectedEnd = null;
+
+        // Set default dates to current week (display only, dont confirm yet)
+        const today = new Date();
+        const priorDate = new Date(new Date().setDate(today.getDate() - 6));
+        document.getElementById('startDate').valueAsDate = priorDate;
+        document.getElementById('endDate').valueAsDate = today;
+
+        // Setup Views
+        if (role === 'admin') {
+            document.getElementById('adminView').style.display = 'block';
+            // Don't auto-set range if not desired, or set it? User wanted select logic.
+            // Let's load initial stats without range filter first.
+            loadAdminStats();
+        } else {
+            document.getElementById('mySidebar').innerHTML = `
+                <div class="sidebar-header">
+                    <h2>Panel</h2>
+                    <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+                </div>
+                <a href="employee.html">Ana Sayfa</a>
+                <a href="downloads.html" class="active">İndirmeler</a>
+                <a href="#" onclick="auth.logout()">Çıkış Yap</a>
+            `;
+            document.getElementById('employeeView').style.display = 'block';
+            loadMyStats();
+        }
+
+        function openNav() { document.getElementById("mySidebar").classList.add("open"); }
+        function closeNav() { document.getElementById("mySidebar").classList.remove("open"); }
+
+        function setDateRange() {
+            const s = document.getElementById('startDate').value;
+            const e = document.getElementById('endDate').value;
+            if (!s || !e) return alert("Lütfen tarih seçin");
+            if (s > e) return alert("Başlangıç tarihi bitiş tarihinden büyük olamaz");
+
+            selectedStart = s;
+            selectedEnd = e;
+            document.getElementById('rangeInfo').style.display = 'block';
+            document.getElementById('rangeText').textContent = `${s} - ${e}`;
+
+            loadAdminStats(); // Reload with filter
+        }
+
+        async function loadAdminStats() {
+            // Build URL with query params
+            let url = '/admin/download-stats';
+            if (selectedStart && selectedEnd) {
+                url += `?start_date=${selectedStart}&end_date=${selectedEnd}`;
+            }
+
+            const res = await apiFetch(url);
+            const data = await res.json();
+
+            document.getElementById('totalDownloads').textContent = data.total_downloads.toLocaleString();
+            document.getElementById('totalAccounts').textContent = data.total_accounts.toLocaleString();
+            document.getElementById('bestEmployee').textContent = data.best_employee;
+            document.getElementById('activeCount').textContent = data.employees.length;
+
+            // Update Range Card
+            if (selectedStart && selectedEnd) {
+                document.getElementById('rangeTotal').textContent = data.range_total;
+                document.getElementById('rangeLabel').textContent = `${selectedStart} - ${selectedEnd}`;
+            } else {
+                document.getElementById('rangeTotal').textContent = "-";
+                document.getElementById('rangeLabel').textContent = "Tarih seçiniz";
+            }
+
+            // Chart Data Fetch
+            const chartRes = await apiFetch('/admin/chart-data');
+            const chartData = await chartRes.json();
+            renderChart('downloadChart', chartData.labels, chartData.data, 'İndirme Trendi (Genel)');
+
+            let html = `<table class="styled-table">
+                <thead>
+                    <tr>
+                        <th>Personel</th>
+                        <th>Kullanıcı Adı</th>
+                        <th>Toplam (Genel)</th>
+                        <th>Seçilen Aralık</th>
+                        <th style="text-align:right">Bu Aralığa Ekle</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            data.employees.forEach(e => {
+                const rangeVal = e.range_downloads !== undefined ? e.range_downloads : '-';
+
+                html += `<tr>
+                    <td><div style="font-weight:600; color:#111827">${e.full_name}</div></td>
+                    <td><span style="background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:10px; font-size:0.85em;">@${e.user_name}</span></td>
+                    <td><span style="font-size:1.1em; font-weight:bold;">${e.total_downloads}</span></td>
+                    <td><span style="font-weight:bold; color:#6366f1;">${rangeVal}</span></td>
+                    <td style="text-align:right">
+                         <input type="number" id="add-${e.id}" placeholder="Miktar" class="update-input" style="width:70px;">
+                         <button onclick="submitRecord(${e.id}, 1)" class="update-btn" style="background:#10b981;">Ekle (+)</button>
+                         <button onclick="submitRecord(${e.id}, -1)" class="update-btn" style="background:#ef4444; margin-left:5px;">Sil (-)</button>
+                    </td>
+                </tr>`;
+            });
+            html += `</tbody></table>`;
+            document.getElementById('employeeList').innerHTML = html;
+        }
+
+        async function submitRecord(id, multiplier) {
+            if (!selectedStart || !selectedEnd) return alert("Lütfen önce yukarıdan tarih aralığını seçin ve 'Aralığı Seç' butonuna basın.");
+
+            const input = document.getElementById(`add-${id}`);
+            const val = input.value;
+            const count = parseInt(val);
+            if (!count || count <= 0) return alert("Lütfen geçerli bir miktar girin");
+
+            const finalCount = count * multiplier;
+
+            const res = await apiFetch('/admin/add-download-record', {
+                method: 'POST',
+                body: JSON.stringify({
+                    employee_id: id,
+                    start_date: selectedStart,
+                    end_date: selectedEnd,
+                    count: finalCount
+                })
+            });
+
+            if (res.ok) {
+                const btnSelector = multiplier === 1
+                    ? `button[onclick="submitRecord(${id}, 1)"]`
+                    : `button[onclick="submitRecord(${id}, -1)"]`;
+                const btn = input.parentNode.querySelector(btnSelector);
+
+                const originalText = btn.textContent;
+                const originalColor = btn.style.backgroundColor;
+
+                btn.textContent = multiplier === 1 ? "Eklendi!" : "Silindi!";
+                btn.style.backgroundColor = multiplier === 1 ? "#059669" : "#b91c1c";
+
+                input.value = '';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.backgroundColor = originalColor;
+                    loadAdminStats();
+                }, 1000);
+            } else {
+                alert("Hata oluştu");
+            }
+        }
+
+        async function loadMyStats() {
+            // 1. Stats & Recent
+            const res = await apiFetch('/employee/my-downloads');
+            const data = await res.json();
+            document.getElementById('myTotalDownloads').textContent = data.total_downloads.toLocaleString();
+
+            let html = '';
+            if (!data.recent_activity || data.recent_activity.length === 0) {
+                html = '<p style="color:#6b7280; font-style:italic; padding:10px;">Henüz veri yok.</p>';
+            } else {
+                html = `<table style="width:100%; text-align:left; border-collapse:collapse;">
+                    <thead>
+                        <tr style="border-bottom:2px solid #f3f4f6; color:#9ca3af; font-size:0.8em; text-transform:uppercase;">
+                            <th style="padding:10px 0;">Tarih Aralığı</th>
+                            <th style="text-align:right; padding:10px 0;">Adet</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                data.recent_activity.forEach(r => {
+                    html += `<tr style="border-bottom:1px solid #f9fafb;">
+                        <td style="padding:12px 0; color:#374151; font-weight:500;">
+                            <span style="background:#f3f4f6; padding:4px 8px; border-radius:4px; font-size:0.9em;">
+                                ${r.start_date} <span style="color:#9ca3af">/</span> ${r.end_date}
+                            </span>
+                        </td>
+                        <td style="text-align:right; padding:12px 0; font-weight:bold; color:#10b981; font-size:1.1em;">+${r.count}</td>
+                     </tr>`;
+                });
+                html += `</tbody></table>`;
+            }
+            document.getElementById('recentActivityList').innerHTML = html;
+
+            // 2. Chart
+            const chartRes = await apiFetch('/employee/chart-data');
+            const chartData = await chartRes.json();
+
+            // Render chart
+            const labels = chartData.labels.length ? chartData.labels : ['Veri Yok'];
+            const cData = chartData.labels.length ? chartData.data : [0];
+
+            // Reset canvas container
+            document.getElementById('empChartContainer').innerHTML = '<canvas id="employeeChart"></canvas>';
+
+            renderChart('employeeChart', labels, cData, 'Performansım');
+        }
+
+        let charts = {};
+
+        function renderChart(canvasId, labels, data, label) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+
+            if (charts[canvasId]) charts[canvasId].destroy();
+
+            if (labels.length === 0) {
+                labels = ['Veri Yok'];
+                data = [0];
+            }
+
+            charts[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        borderColor: '#2563eb',
+                        tension: 0.4,
+                        fill: true,
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { borderDash: [5, 5] }, ticks: { precision: 0 } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

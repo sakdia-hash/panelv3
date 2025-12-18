@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personel Paneli</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .account-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background 0.2s;
+        }
+
+        .account-row:hover {
+            background-color: #f9fafb;
+        }
+
+        .account-row input {
+            padding: 6px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            width: 180px;
+        }
+
+        .status {
+            width: 90px;
+            font-size: 0.9em;
+            text-align: center;
+            padding: 4px 8px;
+            border-radius: 12px;
+        }
+
+        /* Table-like headers for account list */
+        .account-header {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 15px;
+            background: #f9fafb;
+            border-bottom: 2px solid #e5e7eb;
+            font-weight: 600;
+            color: #6b7280;
+            font-size: 0.85em;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <div id="mySidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>Panel</h2>
+            <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+        </div>
+        <a href="employee.html" class="active">Ana Sayfa</a>
+        <a href="downloads.html">İndirmeler</a>
+        <a href="#" onclick="auth.logout()">Çıkış Yap</a>
+
+        <div style="position:absolute; bottom:20px; width:100%; text-align:center; font-size:0.75em; color:#4b5563;">
+            Made by gabardagı31
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="main">
+        <div class="navbar">
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button class="menu-btn" onclick="openNav()">&#9776;</button>
+                <h2>Personel Paneli</h2>
+            </div>
+            <!-- User Info or Logout could go here -->
+        </div>
+
+        <div class="container">
+            <!-- Admin Note Card -->
+            <div class="card" id="adminNoteCard"
+                style="border-left:4px solid #f59e0b; margin-bottom:20px; display:none;">
+                <h3 style="color:#b45309; margin-bottom:5px;">📢 Yönetici Duyurusu</h3>
+                <p id="adminNoteContent" style="font-size:1.1em; color:#1f2937; white-space: pre-wrap;"></p>
+            </div>
+
+            <!-- Info Cards -->
+            <!-- Dashboard Status -->
+            <div class="card" style="margin-bottom:20px; border-left: 4px solid #2563eb;">
+                <h3 style="margin-top:0;">Hesap Durumu</h3>
+                <div id="statusInfo" style="line-height:1.6;">Yükleniyor...</div>
+            </div>
+
+            <!-- Assigned Accounts List -->
+            <div class="card">
+                <h3 style="margin-top:0; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+                    Hesaplarım</h3>
+                <div class="account-header">
+                    <span style="flex:1">Hesap</span>
+                    <span style="flex:1">Şifre</span>
+                    <span style="width:80px; text-align:right;">Link</span>
+                </div>
+                <div id="myAccounts">
+                    <!-- List items will be injected here -->
+                </div>
+            </div>
+
+            <!-- New Account Entry Form (Only if quota > filled) -->
+            <div class="card" id="newEntryCard" style="display:none; border: 2px solid #2563eb; margin-top:20px;">
+                <h3 style="color:#2563eb; margin-top:0;">Yeni Hesap Girişi (Zorunlu)</h3>
+                <p style="color:#6b7280; margin-bottom:15px;">Yöneticiniz <strong><span
+                            id="missingCount">0</span></strong>
+                    adet yeni hesap girmenizi istedi. Lütfen aşağıdaki alanları eksiksiz doldurun.</p>
+
+                <form id="bulkForm" onsubmit="return false">
+                    <div id="newSlots"></div>
+                    <button onclick="saveNewAccounts()"
+                        style="background-color:#2563eb; margin-top:15px; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;">Hepsini
+                        Kaydet</button>
+                </form>
+            </div>
+
+            <!-- Report Submission (Only visible if quota full) -->
+            <div class="card" id="reportCard" style="display:none; margin-top:20px;">
+                <h3>Günlük Rapor Girişi</h3>
+                <div id="reportInputs"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        auth.check();
+
+        function openNav() { document.getElementById("mySidebar").classList.add("open"); }
+        function closeNav() { document.getElementById("mySidebar").classList.remove("open"); }
+
+        let currentQuota = 0;
+        let myAccounts = [];
+
+        async function loadDashboard() {
+            // Load Admin Note
+            try {
+                const noteRes = await apiFetch('/general/note');
+                const noteData = await noteRes.json();
+                if (noteData.content) {
+                    document.getElementById('adminNoteCard').style.display = 'block';
+                    document.getElementById('adminNoteContent').innerHTML = noteData.content +
+                        `<br><small style='display:block; margin-top:10px; color:#6b7280; font-style:italic; font-size:0.8em;'>— ${noteData.author || 'Yönetici'}</small>`;
+                }
+            } catch (e) { console.error(e); }
+
+            const res = await apiFetch('/employee/dashboard-data');
+
+            if (res.status === 401 || res.status === 403) {
+                return;
+            }
+
+            const data = await res.json();
+            myAccounts = data.assigned_accounts;
+            currentQuota = data.quota;
+
+            // Update Status
+            document.getElementById('statusInfo').innerHTML = `
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">
+                    <div><strong>Hedef Kotanız:</strong> <span style="font-size:1.2em; color:#111827;">${currentQuota}</span></div>
+                    <div><strong>Mevcut Hesaplar:</strong> <span style="font-size:1.2em; color:#111827;">${myAccounts.length}</span></div>
+                    <div style="font-weight:bold; color:${myAccounts.length < currentQuota ? '#dc2626' : '#16a34a'}">
+                        ${myAccounts.length < currentQuota ? `⚠️ ${currentQuota - myAccounts.length} Eksik` : '✅ Tamamlandı'}
+                    </div>
+                </div>
+            `;
+
+            renderMyAccounts();
+
+            if (myAccounts.length < currentQuota) {
+                showNewAccountEntry(currentQuota - myAccounts.length);
+                document.getElementById('reportCard').style.display = 'none';
+            } else {
+                document.getElementById('newEntryCard').style.display = 'none';
+                document.getElementById('reportCard').style.display = 'block';
+                loadReports();
+            }
+        }
+
+        let editingId = null;
+
+        function renderMyAccounts() {
+            const list = document.getElementById('myAccounts');
+            list.innerHTML = '';
+
+            if (myAccounts.length === 0) {
+                list.innerHTML = '<div style="padding:15px; color:#6b7280; text-align:center;">Henüz hesap atanmamış.</div>';
+                return;
+            }
+
+            myAccounts.forEach(acc => {
+                const div = document.createElement('div');
+                div.className = 'account-row';
+
+                if (editingId === acc.id) {
+                    div.innerHTML = `
+                        <input type="text" id="edit-user-${acc.id}" value="${acc.username}" style="flex:1; margin-right:5px; padding:5px; border:1px solid #ddd; border-radius:4px;">
+                        <input type="text" id="edit-pass-${acc.id}" value="${acc.password}" style="flex:1; margin-right:5px; padding:5px; border:1px solid #ddd; border-radius:4px;">
+                        <button onclick="saveAccount(${acc.id})" style="background:#10b981; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; margin-right:5px;">Kaydet</button>
+                        <button onclick="cancelEdit()" style="background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">İptal</button>
+                    `;
+                } else {
+                    div.innerHTML = `
+                        <span style="flex:1; font-weight:500; color:#374151;">${acc.username}</span>
+                        <span style="flex:1; color:#6b7280; font-family:monospace;">${acc.password}</span>
+                        <div style="width:140px; text-align:right;">
+                            <button onclick="editAccount(${acc.id})" style="background:none; border:none; cursor:pointer; margin-right:10px; font-size:1.2em;" title="Düzenle">✏️</button>
+                            <a href="https://instagram.com/${acc.username}" target="_blank" style="color:#e1306c; text-decoration:none; font-weight:600; font-size:0.9em;">
+                                Git ↗
+                            </a>
+                        </div>
+                    `;
+                }
+                list.appendChild(div);
+            });
+        }
+
+        function editAccount(id) {
+            editingId = id;
+            renderMyAccounts();
+        }
+
+        function cancelEdit() {
+            editingId = null;
+            renderMyAccounts();
+        }
+
+        async function saveAccount(id) {
+            const user = document.getElementById(`edit-user-${id}`).value;
+            const pass = document.getElementById(`edit-pass-${id}`).value;
+
+            if (!user || !pass) return alert("Boş bırakılamaz");
+
+            const res = await apiFetch(`/employee/account/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ username: user, password: pass })
+            });
+
+            if (res.ok) {
+                // Update local data
+                const acc = myAccounts.find(a => a.id === id);
+                acc.username = user;
+                acc.password = pass;
+                editingId = null;
+                renderMyAccounts();
+                alert("Güncellendi!");
+            } else {
+                alert("Hata oluştu");
+            }
+        }
+
+        function showNewAccountEntry(count) {
+            const card = document.getElementById('newEntryCard');
+            card.style.display = 'block';
+            document.getElementById('missingCount').textContent = count;
+
+            const formDiv = document.getElementById('newSlots');
+            formDiv.innerHTML = '';
+
+            for (let i = 0; i < count; i++) {
+                const row = document.createElement('div');
+                row.style.marginBottom = '10px';
+                row.style.display = 'flex';
+                row.style.gap = '10px';
+
+                row.innerHTML = `
+                    <span style="padding-top:5px; color:#6b7280; font-size:0.9em; width:20px;">${i + 1}.</span>
+                    <input type="text" placeholder="Kullanıcı Adı" class="new-user" required style="flex:1; padding:8px; border:1px solid #d1d5db; border-radius:4px;">
+                    <input type="text" placeholder="Şifre" class="new-pass" required style="flex:1; padding:8px; border:1px solid #d1d5db; border-radius:4px;">
+                `;
+                formDiv.appendChild(row);
+            }
+        }
+
+        async function saveNewAccounts() {
+            const users = document.querySelectorAll('.new-user');
+            const passes = document.querySelectorAll('.new-pass');
+            const accounts = [];
+
+            for (let i = 0; i < users.length; i++) {
+                if (users[i].value && passes[i].value) {
+                    accounts.push({
+                        username: users[i].value,
+                        password: passes[i].value
+                    });
+                }
+            }
+
+            if (accounts.length < users.length) return alert("Lütfen tüm alanları doldurun.");
+
+            const res = await apiFetch('/employee/bulk-create-accounts', {
+                method: 'POST',
+                body: JSON.stringify({ accounts: accounts })
+            });
+
+            if (res.ok) {
+                alert("Hesaplar başarıyla eklendi!");
+                loadDashboard();
+            } else {
+                alert("Hata oluştu!");
+            }
+        }
+
+        async function loadReports() {
+            const div = document.getElementById('reportInputs');
+            div.innerHTML = `<p style="color:#6b7280;">Bugünkü raporunuz sistem tarafından otomatik kaydedilmektedir.</p>`;
+        }
+
+        loadDashboard();
+    </script>
+</body>
+
+</html>

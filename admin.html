@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yönetici Paneli</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="mySidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>Panel</h2>
+            <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+        </div>
+        <a href="admin.html" class="active">Ana Sayfa</a>
+        <a href="employees.html">Personel</a>
+        <a href="reports.html">Raporlar</a>
+        <a href="downloads.html">İndirmeler</a>
+        <a href="accounts.html">Hesaplar</a>
+        <a href="logs.html">İşlem Geçmişi</a>
+        <a href="#" onclick="auth.logout()">Çıkış Yap</a>
+
+        <div style="position:absolute; bottom:20px; width:100%; text-align:center; font-size:0.75em; color:#4b5563;">
+            Made by gabardagı31
+        </div>
+    </div>
+
+    <div id="main">
+        <div class="navbar">
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button class="menu-btn" onclick="openNav()">&#9776;</button>
+                <h2>Yönetici Paneli</h2>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Özet</h3>
+            <div id="summaryContent">Yükleniyor...</div>
+
+            <h4 style="margin-top:20px; border-top:1px solid #eee; padding-top:15px;">Yönetici Duyurusu</h4>
+            <textarea id="adminNote" rows="3"
+                style="width:100%; padding:10px; border:1px solid #d1d5db; border-radius:4px; margin-bottom:10px;"
+                placeholder="Tüm personele gösterilecek notu buraya yazın..."></textarea>
+            <button onclick="saveNote()" style="background:#4f46e5;">Notu Kaydet</button>
+
+            <div style="margin-top: 20px;">
+                <button onclick="loadSummary()" style="width: auto;">Özeti Yenile</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        auth.check();
+        if (auth.getRole() !== 'admin') window.location.href = 'login.html';
+
+        function openNav() {
+            document.getElementById("mySidebar").classList.add("open");
+        }
+
+        function closeNav() {
+            document.getElementById("mySidebar").classList.remove("open");
+        }
+
+        async function loadSummary() {
+            const res = await apiFetch('/admin/daily-summary');
+            const data = await res.json();
+
+            let html = `<div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom: 20px;">
+                <div><small style="color:#6b7280">Tarih</small><div style="font-size:1.1em; font-weight:600">${data.date}</div></div>
+                <div><small style="color:#6b7280">Bugünkü Takipçi</small><div style="font-size:1.1em; font-weight:600; color:#2563eb">${data.total_followers}</div></div>
+            </div>`;
+
+            if (data.downloads_by_date && data.downloads_by_date.length > 0) {
+                html += `<h4 style="margin-bottom:10px;">İndirme Durumu</h4>
+                 <table style="margin-bottom:20px;">
+                    <thead><tr><th>Tarih</th><th>Toplam İndirme</th></tr></thead>
+                    <tbody>`;
+                data.downloads_by_date.forEach(d => {
+                    html += `<tr><td>${d.date}</td><td><strong>${d.count}</strong></td></tr>`;
+                });
+                html += `</tbody></table>`;
+            }
+
+            if (data.reports.length > 0) {
+                html += `<h4 style="margin-bottom:10px;">Takipçi Raporları</h4><table>
+                    <thead><tr><th>Personel</th><th>Hesap</th><th>Sayı</th><th>Durum</th></tr></thead>
+                    <tbody>`;
+                data.reports.forEach(r => {
+                    html += `<tr>
+                        <td>${r.employee_name}</td>
+                        <td>${r.account}</td>
+                        <td>${r.count}</td>
+                        <td><span class="${r.locked ? 'status-locked' : 'status-open'}">${r.locked ? 'Kilitli' : 'Düzenlenebilir'}</span></td>
+                    </tr>`;
+                });
+                html += `</tbody></table>`;
+            } else {
+                html += `<p style="color:#6b7280; font-style:italic">Bugün için henüz rapor girişi yapılmadı.</p>`;
+            }
+            document.getElementById('summaryContent').innerHTML = html;
+        }
+
+        async function loadNote() {
+            const res = await apiFetch('/general/note');
+            const data = await res.json();
+            document.getElementById('adminNote').value = data.content;
+        }
+
+        async function saveNote() {
+            const content = document.getElementById('adminNote').value;
+            const res = await apiFetch('/admin/note', {
+                method: 'POST',
+                body: JSON.stringify({ content: content })
+            });
+            if (res.ok) alert("Not kaydedildi!");
+            else alert("Hata!");
+        }
+
+        // Init
+        loadSummary();
+        loadNote();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hesaplar - Yönetici Paneli</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .select-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        select {
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1em;
+            flex: 1;
+            max-width: 400px;
+        }
+
+        .styled-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .styled-table thead {
+            background-color: #f9fafb;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .styled-table th {
+            padding: 15px 20px;
+            text-align: left;
+            font-size: 0.85em;
+            color: #6b7280;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .styled-table td {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f3f4f6;
+            color: #374151;
+            font-size: 0.95em;
+        }
+
+        .styled-table tr:hover {
+            background-color: #f9fafb;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="mySidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>Panel</h2>
+            <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+        </div>
+        <a href="admin.html">Ana Sayfa</a>
+        <a href="employees.html">Personel</a>
+        <a href="reports.html">Raporlar</a>
+        <a href="downloads.html">İndirmeler</a>
+        <a href="accounts.html" class="active">Hesaplar</a>
+        <a href="#" onclick="auth.logout()">Çıkış Yap</a>
+    </div>
+
+    <div id="main">
+        <div class="navbar">
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button class="menu-btn" onclick="openNav()">&#9776;</button>
+                <h2>Personel Hesapları</h2>
+            </div>
+        </div>
+
+        <!-- Employee Selector -->
+        <div class="select-container">
+            <label style="font-weight:600; color:#374151;">Personel Seç:</label>
+            <select id="employeeSelect" onchange="loadEmployeeAccounts()">
+                <option value="">Seçiniz...</option>
+            </select>
+        </div>
+
+        <!-- Accounts Table -->
+        <div class="card" style="padding:0; background:transparent; box-shadow:none;">
+            <div id="accountsTableContainer">
+                <p style="color:#6b7280; font-style:italic;">Lütfen bir personel seçin.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        auth.check();
+        if (auth.getRole() !== 'admin') window.location.href = 'login.html';
+
+        function openNav() { document.getElementById("mySidebar").classList.add("open"); }
+        function closeNav() { document.getElementById("mySidebar").classList.remove("open"); }
+
+        async function init() {
+            // Load employees for dropdown
+            const res = await apiFetch('/admin/employees');
+            const employees = await res.json();
+
+            const select = document.getElementById('employeeSelect');
+            employees.forEach(emp => {
+                const opt = document.createElement('option');
+                opt.value = emp.id;
+                opt.textContent = `${emp.full_name} (@${emp.user_name})`;
+                select.appendChild(opt);
+            });
+        }
+
+        async function loadEmployeeAccounts() {
+            const id = document.getElementById('employeeSelect').value;
+            const container = document.getElementById('accountsTableContainer');
+
+            if (!id) {
+                container.innerHTML = '<p style="color:#6b7280; font-style:italic;">Lütfen bir personel seçin.</p>';
+                return;
+            }
+
+            container.innerHTML = 'Yükleniyor...';
+
+            const res = await apiFetch(`/admin/employee/${id}`);
+            if (!res.ok) {
+                container.innerHTML = '<p style="color:red;">Hata oluştu.</p>';
+                return;
+            }
+
+            const data = await res.json();
+            const accounts = data.assigned_accounts;
+
+            if (accounts.length === 0) {
+                container.innerHTML = '<p style="color:#6b7280; padding:20px; background:white; border-radius:12px;">Bu personele atanmış hesap bulunamadı.</p>';
+                return;
+            }
+
+            let html = `<table class="styled-table">
+                <thead>
+                    <tr>
+                        <th>Kullanıcı Adı</th>
+                        <th>Şifre</th>
+                        <th style="width:100px; text-align:right;">Link</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            accounts.forEach(acc => {
+                html += `<tr>
+                    <td style="font-weight:600; color:#111827;">${acc.username}</td>
+                    <td style="font-family:monospace; color:#6b7280;">${acc.password}</td>
+                    <td style="text-align:right;">
+                        <a href="https://instagram.com/${acc.username}" target="_blank" style="color:#e1306c; font-weight:bold; text-decoration:none;">Git ↗</a>
+                    </td>
+                </tr>`;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

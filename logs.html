@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İşlem Geçmişi - Yönetici Paneli</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="mySidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>Panel</h2>
+            <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+        </div>
+        <a href="admin.html">Ana Sayfa</a>
+        <a href="employees.html">Personel</a>
+        <a href="reports.html">Raporlar</a>
+        <a href="downloads.html">İndirmeler</a>
+        <a href="accounts.html">Hesaplar</a>
+        <a href="logs.html" class="active">İşlem Geçmişi</a>
+        <a href="#" onclick="auth.logout()">Çıkış Yap</a>
+
+        <div style="position:absolute; bottom:20px; width:100%; text-align:center; font-size:0.75em; color:#4b5563;">
+            Made by gabardagı31
+        </div>
+    </div>
+
+    <div id="main">
+        <div class="navbar">
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button class="menu-btn" onclick="openNav()">&#9776;</button>
+                <h2>İşlem Geçmişi</h2>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="card">
+                <h3>Son İşlemler</h3>
+                <div style="overflow-x:auto;">
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th>Zaman</th>
+                                <th>Kullanıcı</th>
+                                <th>İşlem</th>
+                                <th>Detay</th>
+                                <th>IP Adresi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTable">
+                            <tr>
+                                <td colspan="5">Yükleniyor...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        auth.check();
+        if (auth.getRole() !== 'admin') window.location.href = 'login.html';
+
+        function openNav() {
+            document.getElementById("mySidebar").classList.add("open");
+        }
+
+        function closeNav() {
+            document.getElementById("mySidebar").classList.remove("open");
+        }
+
+        async function loadLogs() {
+            const res = await apiFetch('/admin/logs?limit=100');
+            const logs = await res.json();
+
+            const tbody = document.getElementById('logsTable');
+            tbody.innerHTML = '';
+
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#6b7280;">Kayıt bulunamadı.</td></tr>';
+                return;
+            }
+
+            logs.forEach(l => {
+                let actionColor = "#374151";
+                if (l.action === "LOGIN") actionColor = "#2563eb";
+                if (l.action === "UPDATE_ACCOUNT") actionColor = "#d97706";
+                if (l.action === "SUBMIT_REPORT") actionColor = "#059669";
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="white-space:nowrap; color:#6b7280; font-size:0.9em;">${l.timestamp}</td>
+                    <td style="font-weight:600;">${l.username}</td>
+                    <td><span style="background:${actionColor}15; color:${actionColor}; padding:2px 8px; border-radius:4px; font-size:0.85em; font-weight:600;">${l.action}</span></td>
+                    <td style="color:#4b5563;">${l.details}</td>
+                    <td style="font-family:monospace; color:#6b7280;">${l.ip_address}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        loadLogs();
+    </script>
+</body>
+
+</html>

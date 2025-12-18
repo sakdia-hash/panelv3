@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personel Yönetimi - Yönetici Paneli</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .flex-group input {
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="mySidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>Panel</h2>
+            <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+        </div>
+        <a href="admin.html">Ana Sayfa</a>
+        <a href="employees.html" class="active">Personel</a>
+        <a href="reports.html">Raporlar</a>
+        <a href="downloads.html">İndirmeler</a>
+        <a href="accounts.html">Hesaplar</a>
+        <a href="#" onclick="auth.logout()">Çıkış Yap</a>
+    </div>
+
+    <div id="main">
+        <div class="navbar">
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button class="menu-btn" onclick="openNav()">&#9776;</button>
+                <h2>Personel Yönetimi</h2>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Personel Ekle</h3>
+            <div class="flex-group">
+                <input type="text" id="empUser" placeholder="Kullanıcı Adı">
+                <input type="password" id="empPass" placeholder="Şifre">
+                <input type="text" id="empName" placeholder="Tam İsim">
+                <select id="empRole" style="padding:10px; border-radius:6px; border:1px solid #ddd;">
+                    <option value="employee">Personel</option>
+                    <option value="admin">Yönetici</option>
+                </select>
+                <button onclick="createEmployee()">Ekle</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Personel Listesi</h3>
+            <div id="employeeList" style="margin-top: 20px;">Yükleniyor...</div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        auth.check();
+        if (auth.getRole() !== 'admin') window.location.href = 'login.html';
+
+        function openNav() {
+            document.getElementById("mySidebar").classList.add("open");
+        }
+
+        function closeNav() {
+            document.getElementById("mySidebar").classList.remove("open");
+        }
+
+        async function createEmployee() {
+            const user = document.getElementById('empUser').value;
+            const pass = document.getElementById('empPass').value;
+            const name = document.getElementById('empName').value;
+            const role = document.getElementById('empRole').value;
+
+            if (!user || !pass || !name) return alert("Tüm alanları doldurun");
+
+            const res = await apiFetch('/admin/create-employee', {
+                method: 'POST',
+                body: JSON.stringify({ username: user, password: pass, full_name: name, role: role })
+            });
+
+            if (res.ok) {
+                alert("Kullanıcı eklendi!");
+                document.getElementById('empUser').value = '';
+                document.getElementById('empPass').value = '';
+                document.getElementById('empName').value = '';
+                loadEmployees();
+            } else {
+                const d = await res.json();
+                alert("Hata: " + d.detail);
+            }
+        }
+
+        async function loadEmployees() {
+            try {
+                const res = await apiFetch('/admin/employees');
+                if (!res.ok) throw new Error("Liste yüklenemedi: " + res.status);
+                const data = await res.json();
+
+                let html = `<table>
+                <thead><tr><th>İsim</th><th>Kullanıcı Adı</th><th>Şifre</th><th>Atanan / Kota</th><th>Kota Belirle</th><th>İşlemler</th></tr></thead>
+                <tbody>`;
+
+                data.forEach(e => {
+                    html += `<tr>
+                    <td><strong><a href="employee_details.html?id=${e.id}" style="color:#2563eb; text-decoration:none;">${e.full_name}</a></strong></td>
+                    <td style="color:#6b7280">${e.user_name}</td>
+                    <td>
+                        <span style="font-family:monospace; color:#374151; background:#f9fafb; padding:2px 6px; border-radius:4px; margin-right:5px; border:1px solid #e5e7eb;">${e.visible_password}</span>
+                        <button onclick="resetPassword(${e.id})" style="background:#fff; border:1px solid #d1d5db; color:#374151; font-size:0.75em; padding:2px 8px; border-radius:4px; cursor:pointer;" title="Şifreyi Değiştir">✏️</button>
+                    </td>
+                    <td>${e.assigned_count} / ${e.account_quota}</td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:5px;">
+                            <input type="number" id="quota-${e.id}" placeholder="+" style="width:60px; padding:6px; border:1px solid #d1d5db; border-radius:4px; text-align:center;">
+                            <button onclick="addQuota(${e.id})" style="background:#2563eb; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:500;">Ekle</button>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="row-actions">
+                            <button onclick="deleteEmployee(${e.id})" class="delete-btn">Sil</button>
+                        </div>
+                    </td>
+                </tr>`;
+                });
+                html += `</tbody></table>`;
+                document.getElementById('employeeList').innerHTML = html;
+            } catch (err) {
+                document.getElementById('employeeList').innerHTML = '<p style="color:red">Hata: ' + err.message + '</p>';
+            }
+        }
+
+        async function resetPassword(id) {
+            const newPass = prompt("Yeni şifreyi giriniz:");
+            if (!newPass) return;
+
+            const res = await apiFetch('/admin/reset-password', {
+                method: 'POST',
+                body: JSON.stringify({
+                    employee_id: id,
+                    new_password: newPass
+                })
+            });
+
+            if (res.ok) {
+                alert("Şifre başarıyla güncellendi.");
+            } else {
+                alert("Hata oluştu.");
+            }
+        }
+
+        async function addQuota(id) {
+            const val = document.getElementById(`quota-${id}`).value;
+            const amount = parseInt(val);
+            if (isNaN(amount) || amount === 0) return alert("Geçerli bir miktar girin (ör: 5 veya -5)");
+
+            const res = await apiFetch('/admin/add-quota', {
+                method: 'POST',
+                body: JSON.stringify({ employee_id: id, amount: amount })
+            });
+
+            if (res.ok) {
+                alert("Kota eklendi");
+                loadEmployees();
+            } else {
+                alert("Hata");
+            }
+        }
+
+        async function deleteEmployee(id) {
+            if (!confirm("Emin misiniz?")) return;
+            const res = await apiFetch(`/admin/delete-employee/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                loadEmployees();
+            } else {
+                alert("Hata");
+            }
+        }
+
+        loadEmployees();
+    </script>
+</body>
+
+</html>

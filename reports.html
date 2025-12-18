@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raporlar - Yönetici Paneli</title>
+    <link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+    <div id="mySidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>Panel</h2>
+            <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+        </div>
+        <a href="admin.html">Ana Sayfa</a>
+        <a href="employees.html">Personel</a>
+        <a href="reports.html" class="active">Raporlar</a>
+        <a href="downloads.html">İndirmeler</a>
+        <a href="accounts.html">Hesaplar</a>
+        <a href="#" onclick="auth.logout()">Çıkış Yap</a>
+    </div>
+
+    <div id="main">
+        <div class="navbar">
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button class="menu-btn" onclick="openNav()">&#9776;</button>
+                <h2>Tüm Raporlar</h2>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Filtrele</h3>
+            <div class="flex-group">
+                <label style="white-space:nowrap; color:#6b7280; font-size:0.9em;">Başlangıç:</label>
+                <input type="date" id="startDate" style="margin:0;">
+                <label style="white-space:nowrap; color:#6b7280; font-size:0.9em;">Bitiş:</label>
+                <input type="date" id="endDate" style="margin:0;">
+                <button onclick="loadReports()" style="width: auto;">Filtrele</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Rapor Listesi</h3>
+            <div id="reportList" style="margin-top:20px;">Listeleniyor...</div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        auth.check();
+        if (auth.getRole() !== 'admin') window.location.href = 'login.html';
+
+        function openNav() {
+            document.getElementById("mySidebar").classList.add("open");
+        }
+
+        function closeNav() {
+            document.getElementById("mySidebar").classList.remove("open");
+        }
+
+        async function loadReports() {
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+
+            let url = '/admin/all-reports';
+            const params = new URLSearchParams();
+            if (start) params.append('start_date', start);
+            if (end) params.append('end_date', end);
+
+            if (params.toString()) url += '?' + params.toString();
+
+            const res = await apiFetch(url);
+            const data = await res.json();
+
+            let html = `<table>
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Personel</th>
+                        <th>Hesap</th>
+                        <th>Takipçi Sayısı</th>
+                        <th>Durum</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            if (data.length === 0) {
+                html += '<tr><td colspan="5" style="text-align:center; color:#6b7280;">Kayıt bulunamadı.</td></tr>';
+            } else {
+                data.forEach(r => {
+                    html += `<tr>
+                        <td>${r.date}</td>
+                        <td><strong>${r.employee_name}</strong></td>
+                        <td style="color:#6b7280">${r.account_username}</td>
+                        <td>${r.count}</td>
+                        <td><span class="${r.locked ? 'status-locked' : 'status-open'}">
+                            ${r.locked ? 'Kilitli' : 'Düzenlenebilir'}
+                        </span></td>
+                    </tr>`;
+                });
+            }
+
+            html += `</tbody></table>`;
+            document.getElementById('reportList').innerHTML = html;
+        }
+
+        // Init
+        loadReports();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giriş - Instagram Takipçi Sistemi</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body style="justify-content: center; align-items: center; background: #eef2f6;">
+    <div class="container" style="max-width: 400px;">
+        <h2>Giriş Yap</h2>
+        <form id="loginForm">
+            <input type="text" id="username" placeholder="Kullanıcı Adı" required>
+            <input type="password" id="password" placeholder="Şifre" required>
+            <button type="submit">Giriş Yap</button>
+            <p id="errorMsg" class="error"></p>
+        </form>
+        <div style="margin-top:20px; text-align:center; font-size:0.8em; color:#9ca3af;">
+            Made by <span style="font-weight:600; color:#4b5563;">gabardagı31</span>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Redirect if already logged in
+        if (auth.getToken()) {
+            const role = auth.getRole();
+            if (role === 'admin') window.location.href = 'admin.html';
+            else if (role === 'employee') window.location.href = 'employee.html';
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const err = document.getElementById('errorMsg');
+            err.textContent = "Giriş yapılıyor...";
+
+            try {
+                const data = await auth.login(user, pass);
+                if (data.role === 'admin') window.location.href = 'admin.html';
+                else window.location.href = 'employee.html';
+            } catch (error) {
+                console.error(error);
+                if (error.message.includes("Login failed")) {
+                    err.textContent = "Geçersiz bilgiler (Kullanıcı bulunamadı veya şifre yanlış)";
+                } else {
+                    err.textContent = "Sunucu bağlantı hatası! Backend'in çalıştığından emin olun.";
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
