@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+venv/
+env/
+.vscode/
+*.db
+sql_app.db
+debug_out.txt
+error_log.txt

@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: instagram-panel
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: instagram-panel-db
+          property: connectionString
+      - key: PYTHON_VERSION
+        value: 3.9.0
+
+databases:
+  - name: instagram-panel-db
+    databaseName: social_media
+    user: instagram_user
